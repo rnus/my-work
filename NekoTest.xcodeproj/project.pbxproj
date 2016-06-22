@@ -7,13 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8F1FD1E01D0FEF8700D620FB /* SE.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1DF1D0FEF8700D620FB /* SE.xcassets */; };
+		8F1FD1E21D0FF7E300D620FB /* loop_137.wav in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1E11D0FF7E300D620FB /* loop_137.wav */; };
+		8F1FD1E61D0FFB5700D620FB /* cat1.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1E31D0FFB5700D620FB /* cat1.mp3 */; };
+		8F1FD1E71D0FFB5700D620FB /* cat3.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1E41D0FFB5700D620FB /* cat3.mp3 */; };
+		8F1FD1E81D0FFB5700D620FB /* cat4.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1E51D0FFB5700D620FB /* cat4.mp3 */; };
+		8F1FD1EA1D0FFB5F00D620FB /* cat2.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8F1FD1E91D0FFB5F00D620FB /* cat2.mp3 */; };
+		8F1FD1EC1D102BE200D620FB /* SelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1FD1EB1D102BE200D620FB /* SelectView.swift */; };
 		8F80FF201D068E930075CA8E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF1F1D068E930075CA8E /* AppDelegate.swift */; };
-		8F80FF221D068E930075CA8E /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF211D068E930075CA8E /* ViewController.swift */; };
+		8F80FF221D068E930075CA8E /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF211D068E930075CA8E /* GameViewController.swift */; };
 		8F80FF251D068E930075CA8E /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8F80FF231D068E930075CA8E /* Main.storyboard */; };
 		8F80FF271D068E930075CA8E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8F80FF261D068E930075CA8E /* Assets.xcassets */; };
 		8F80FF2A1D068E930075CA8E /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8F80FF281D068E930075CA8E /* LaunchScreen.storyboard */; };
 		8F80FF351D068E930075CA8E /* NekoTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF341D068E930075CA8E /* NekoTestTests.swift */; };
 		8F80FF401D068E930075CA8E /* NekoTestUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF3F1D068E930075CA8E /* NekoTestUITests.swift */; };
+		8F80FF4E1D068F0A0075CA8E /* TouchScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F80FF4D1D068F0A0075CA8E /* TouchScrollView.swift */; };
+		8FFE5E0D1D0A64BF003185A1 /* cats.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8FFE5E0C1D0A64BF003185A1 /* cats.xcassets */; };
+		8FFE5E0F1D0A9AF1003185A1 /* ExtendedLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFE5E0E1D0A9AF1003185A1 /* ExtendedLabel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,9 +44,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8F1FD1DF1D0FEF8700D620FB /* SE.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = SE.xcassets; sourceTree = "<group>"; };
+		8F1FD1E11D0FF7E300D620FB /* loop_137.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = loop_137.wav; sourceTree = "<group>"; };
+		8F1FD1E31D0FFB5700D620FB /* cat1.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = cat1.mp3; sourceTree = "<group>"; };
+		8F1FD1E41D0FFB5700D620FB /* cat3.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = cat3.mp3; sourceTree = "<group>"; };
+		8F1FD1E51D0FFB5700D620FB /* cat4.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = cat4.mp3; sourceTree = "<group>"; };
+		8F1FD1E91D0FFB5F00D620FB /* cat2.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = cat2.mp3; sourceTree = "<group>"; };
+		8F1FD1EB1D102BE200D620FB /* SelectView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SelectView.swift; sourceTree = "<group>"; };
 		8F80FF1C1D068E930075CA8E /* NekoTest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NekoTest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F80FF1F1D068E930075CA8E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		8F80FF211D068E930075CA8E /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		8F80FF211D068E930075CA8E /* GameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewController.swift; sourceTree = "<group>"; };
 		8F80FF241D068E930075CA8E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		8F80FF261D068E930075CA8E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8F80FF291D068E930075CA8E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -47,6 +64,9 @@
 		8F80FF3B1D068E930075CA8E /* NekoTestUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NekoTestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F80FF3F1D068E930075CA8E /* NekoTestUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NekoTestUITests.swift; sourceTree = "<group>"; };
 		8F80FF411D068E930075CA8E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8F80FF4D1D068F0A0075CA8E /* TouchScrollView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TouchScrollView.swift; sourceTree = "<group>"; };
+		8FFE5E0C1D0A64BF003185A1 /* cats.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = cats.xcassets; sourceTree = "<group>"; };
+		8FFE5E0E1D0A9AF1003185A1 /* ExtendedLabel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExtendedLabel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,8 +118,18 @@
 			isa = PBXGroup;
 			children = (
 				8F80FF1F1D068E930075CA8E /* AppDelegate.swift */,
-				8F80FF211D068E930075CA8E /* ViewController.swift */,
+				8F80FF211D068E930075CA8E /* GameViewController.swift */,
+				8F1FD1EB1D102BE200D620FB /* SelectView.swift */,
+				8FFE5E0E1D0A9AF1003185A1 /* ExtendedLabel.swift */,
+				8F80FF4D1D068F0A0075CA8E /* TouchScrollView.swift */,
+				8F1FD1E31D0FFB5700D620FB /* cat1.mp3 */,
+				8F1FD1E91D0FFB5F00D620FB /* cat2.mp3 */,
+				8F1FD1E41D0FFB5700D620FB /* cat3.mp3 */,
+				8F1FD1E51D0FFB5700D620FB /* cat4.mp3 */,
+				8F1FD1E11D0FF7E300D620FB /* loop_137.wav */,
 				8F80FF231D068E930075CA8E /* Main.storyboard */,
+				8FFE5E0C1D0A64BF003185A1 /* cats.xcassets */,
+				8F1FD1DF1D0FEF8700D620FB /* SE.xcassets */,
 				8F80FF261D068E930075CA8E /* Assets.xcassets */,
 				8F80FF281D068E930075CA8E /* LaunchScreen.storyboard */,
 				8F80FF2B1D068E930075CA8E /* Info.plist */,
@@ -193,6 +223,7 @@
 				TargetAttributes = {
 					8F80FF1B1D068E930075CA8E = {
 						CreatedOnToolsVersion = 7.3.1;
+						DevelopmentTeam = U98AT88E87;
 					};
 					8F80FF2F1D068E930075CA8E = {
 						CreatedOnToolsVersion = 7.3.1;
@@ -229,9 +260,16 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8F1FD1E01D0FEF8700D620FB /* SE.xcassets in Resources */,
+				8F1FD1EA1D0FFB5F00D620FB /* cat2.mp3 in Resources */,
 				8F80FF2A1D068E930075CA8E /* LaunchScreen.storyboard in Resources */,
+				8F1FD1E81D0FFB5700D620FB /* cat4.mp3 in Resources */,
+				8F1FD1E71D0FFB5700D620FB /* cat3.mp3 in Resources */,
 				8F80FF271D068E930075CA8E /* Assets.xcassets in Resources */,
+				8F1FD1E61D0FFB5700D620FB /* cat1.mp3 in Resources */,
 				8F80FF251D068E930075CA8E /* Main.storyboard in Resources */,
+				8F1FD1E21D0FF7E300D620FB /* loop_137.wav in Resources */,
+				8FFE5E0D1D0A64BF003185A1 /* cats.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,8 +294,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8F80FF221D068E930075CA8E /* ViewController.swift in Sources */,
+				8F1FD1EC1D102BE200D620FB /* SelectView.swift in Sources */,
+				8F80FF221D068E930075CA8E /* GameViewController.swift in Sources */,
 				8F80FF201D068E930075CA8E /* AppDelegate.swift in Sources */,
+				8F80FF4E1D068F0A0075CA8E /* TouchScrollView.swift in Sources */,
+				8FFE5E0F1D0A9AF1003185A1 /* ExtendedLabel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,10 +440,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				INFOPLIST_FILE = NekoTest/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.NaoyaUchisawa.NekoTest;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "";
 			};
 			name = Debug;
 		};
@@ -410,10 +454,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				INFOPLIST_FILE = NekoTest/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.NaoyaUchisawa.NekoTest;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "";
 			};
 			name = Release;
 		};
@@ -482,6 +529,7 @@
 				8F80FF461D068E930075CA8E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		8F80FF471D068E930075CA8E /* Build configuration list for PBXNativeTarget "NekoTestTests" */ = {
 			isa = XCConfigurationList;
@@ -490,6 +538,7 @@
 				8F80FF491D068E930075CA8E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		8F80FF4A1D068E930075CA8E /* Build configuration list for PBXNativeTarget "NekoTestUITests" */ = {
 			isa = XCConfigurationList;
@@ -498,6 +547,7 @@
 				8F80FF4C1D068E930075CA8E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
