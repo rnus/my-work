@@ -8,23 +8,32 @@
 
 import UIKit
 import AVFoundation
-
+import Realm
+import RealmSwift
+import GameKit
+import GoogleMobileAds
 class GameViewController: UIViewController ,UIScrollViewDelegate{
+    @IBOutlet weak var countNumber: UILabel!
     @IBOutlet weak var scrollView: touchScrollView!
-    let sS = UIScreen.mainScreen().bounds.size
-    let space = UIScreen.mainScreen().bounds.size.width / 160
+    @IBOutlet weak var banner: GADBannerView!
+    
+    let sS = UIScreen.main.bounds.size
+    let config = UserDefaults.standard
+    let space = UIScreen.main.bounds.size.width / 160
     var catNum = 25
     var time:UILabel? = nil
     var startTime:Double? = nil
     var cats:[Neko] = []
     var randNumbers:[Int]?
     var current = 1
-    var timer:NSTimer?
+    var timer:Timer?
     var first = true
     var stopFlag = false
     var images: [String:UIImage] = [:]
-    var audioPlayer:AVAudioPlayer? = nil
+    var objects: [String:UIImageView] = [:]
+    var audioPlayer2:AVAudioPlayer? = nil
     var sePlayer:AVAudioPlayer? = nil
+    var sePlayer2:AVAudioPlayer? = nil
     var difficulty = 0
     var leftEdge:CGFloat? = nil
     var topEdge:CGFloat? = nil
@@ -33,162 +42,497 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
     var countTimerFlag = false
     var scale: CGFloat = 1.0
     var catSize:CGFloat = 100
+    var cardBoardWidth:CGFloat = 100
+    var cardBoardHeight:CGFloat = 75
+    var ballSize:CGFloat = 40
+    var nextView:UIView? = nil
+    var nextImageView:UIImageView? = nil
+    var nextLabel:ExtendedLabel? = nil
+    var countNum = 3
+    var countDownFlag = true
+    var progress = 0
+    var stopButton: UIButton? = nil
     func start(){
+        if difficulty != 0{
+            scrollView.contentOffset = CGPoint(x: sS.width, y: 0)
+        }
         current = 1
         for l in cats{
             l.label!.removeFromSuperview()
             l.imageView!.removeFromSuperview()
             l.nekoAndNumber!.removeFromSuperview()
-            if l.item1 != nil{
-                l.item1 = nil
-            }
-            if l.item2 != nil{
-                l.item2 = nil
-            }
-            if l.itemAndNeko != nil{
-                l.itemAndNeko = nil
-            }
+            l.imageView?.image = nil
+            l.imageView = nil
+            l.nekoAndNumber = nil
         }
-        cats.removeAll()
+        if objects["cardBoard"] != nil{
+            objects["cardBoard"]?.removeFromSuperview()
+            objects["cardBoardFront"]?.removeFromSuperview()
+            objects["tennisBall"]?.removeFromSuperview()
+            objects["baseball"]?.removeFromSuperview()
+        }
+        if config.value(forKey: "sound") as! Bool{
+            audioPlayer2 = prepareSound("playBgm", type: "wav")
+            audioPlayer2?.numberOfLoops = 65536
+            audioPlayer2?.play()
+        }
         randNumbers = getRandArray(catNum)
-        makeLabels()
-        startTime = NSDate().timeIntervalSince1970
+        addObjects()
+        addNekoAndLabels()
+        createNextCat()
+        toFront()
+        
+        if difficulty == 0{
+            objects["cardBoard"]?.removeFromSuperview()
+            objects["cardBoardFront"]?.removeFromSuperview()
+        }
+        startTime = Date().timeIntervalSince1970
         countTimerFlag = true
         if timer != nil{
             timer?.invalidate()
         }
-        timer = NSTimer.scheduledTimerWithTimeInterval(0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
-        NSRunLoop.mainRunLoop().addTimer(timer!, forMode: NSRunLoopCommonModes)
+        timer = Timer.scheduledTimer(timeInterval: 0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
+        RunLoop.main.add(timer!, forMode: RunLoopMode.commonModes)
     }
     func stop(){
         if timer != nil{
             timer?.invalidate()
             stopFlag = true
         }
+        let alert = UIAlertController(title: "ていしちゅう", message: "", preferredStyle: .alert)
+        let resume = UIAlertAction(title: "まだやる", style: .default, handler: {
+            (action:UIAlertAction!)->Void in
+            self.resume()
+        })
+        let back = UIAlertAction(title: "もどる", style: .default, handler: {
+            (action:UIAlertAction!)->Void in
+            self.dismiss(animated: true, completion: nil)
+        })
+        alert.addAction(back)
+        alert.addAction(resume)
+        present(alert, animated: true, completion: nil)
+        
     }
     func resume(){
         stopFlag = false
-        timer = NSTimer.scheduledTimerWithTimeInterval(0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
-        NSRunLoop.mainRunLoop().addTimer(timer!, forMode: NSRunLoopCommonModes)
+        timer = Timer.scheduledTimer(timeInterval: 0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
+        RunLoop.main.add(timer!, forMode: RunLoopMode.commonModes)
     }
-    override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
+    func clear(){
+        writeRank()
+        if config.value(forKey: "sound") as! Bool{
+            let str = "drum"
+            sePlayer2 = prepareSound(str, type: "mp3")
+            sePlayer2?.play()
+        }
+        let alert = UIAlertController(title: "くりあ", message: time!.text, preferredStyle: .alert)
+        let start = UIAlertAction(title: "もっかい", style: .default, handler: {
+            (action:UIAlertAction!)->Void in
+            self.start()
+        })
+        let back = UIAlertAction(title: "もどる", style: .default, handler: {
+            (action:UIAlertAction!)->Void in
+            self.dismiss(animated: true, completion: nil)
+        })
+        audioPlayer2?.stop()
+        alert.addAction(back)
+        alert.addAction(start)
+        present(alert, animated: true, completion: nil)
+    }
+    
+    
+    func send() {
+        let db = try! Realm()
+            let score: GKScore = GKScore()
+            var doubleValue:Double = 0.0
+            if difficulty == 0{
+                let highScores = db.objects(EasyScore.self)
+                var myHighScore:EasyScore?
+                for hs in highScores{
+                    if hs.rank == 1{
+                        myHighScore = hs
+                    }
+                }
+                doubleValue = myHighScore!.time*1000
+                score.leaderboardIdentifier = "easy"
+            }else if difficulty == 1{
+                let highScores = db.objects(NormalScore.self)
+                var myHighScore:NormalScore?
+                for hs in highScores{
+                    if hs.rank == 1{
+                        myHighScore = hs
+                    }
+                }
+                doubleValue = myHighScore!.time*1000
+                score.leaderboardIdentifier = "normal"
+            }else if difficulty == 2{
+                let highScores = db.objects(HardScore.self)
+                var myHighScore:HardScore?
+                for hs in highScores{
+                    if hs.rank == 1{
+                        myHighScore = hs
+                    }
+                }
+                doubleValue = myHighScore!.time*1000
+                score.leaderboardIdentifier = "hard"
+            }
+            score.value = Int64(doubleValue)
+            let scoreArr:[GKScore] = [score]
+            GKScore.report(scoreArr, withCompletionHandler: {(error:Error?)->Void in
+                if(error != nil){
+                    print("Report: Error")
+                }else{
+                    print("Report: OK")
+                }
+            })
+        
+        
+        
+    }
+    
+    func writeRank(){
+        let db = try! Realm()
+        var newFlag = false
+        var newRank = 1
+        let newTime = Double(time!.text!)!
+        
+        if difficulty == 0{
+            let highScores = db.objects(EasyScore.self)
+            for highScore in highScores{
+                if highScore.time <= newTime{
+                    newRank += 1
+                    newFlag = true
+                }
+            }
+            if !newFlag{
+                var newRankFlag = 255
+                for highScore in highScores{
+                    if newTime < highScore.time && highScore.rank <= newRankFlag{
+                        newRank = highScore.rank
+                        newFlag = true
+                        newRankFlag = highScore.rank
+                    }
+                }
+            }
+            if highScores.count == 0{
+                newRank = 1
+                newFlag = true
+            }
+            if newFlag{
+                let score = EasyScore()
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy/MM/dd/HH:mm:SS"
+                score.rank = newRank
+                score.time = newTime
+                score.date = dateFormatter.string(from: Date())
+                for highScore in highScores{
+                    if highScore.rank >= newRank{
+                        let score1 = EasyScore()
+                        score1.rank = highScore.rank + 1
+                        score1.time = highScore.time
+                        score1.date = highScore.date
+                        try! db.write(){
+                            db.delete(highScore)
+                            db.add(score1,update: true)
+                        }
+                    }
+                }
+                try! db.write(){
+                    db.add(score,update: true)
+                }
+                for s in highScores{
+                    if s.rank == 31{
+                        try! db.write(){
+                            db.delete(s)
+                        }
+                        break
+                    }
+                }
+            }
+        }else if difficulty == 1{
+            let highScores = db.objects(NormalScore.self)
+            for highScore in highScores{
+                if highScore.time <= newTime{
+                    newRank += 1
+                    newFlag = true
+                }
+            }
+            if !newFlag{
+                var newRankFlag = 255
+                for highScore in highScores{
+                    if newTime < highScore.time && highScore.rank <= newRankFlag{
+                        newRank = highScore.rank
+                        newFlag = true
+                        newRankFlag = highScore.rank
+                    }
+                }
+            }
+            if highScores.count == 0{
+                newRank = 1
+                newFlag = true
+            }
+            if newFlag{
+                let score = NormalScore()
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy/MM/dd/HH:mm:SS"
+                score.rank = newRank
+                score.time = newTime
+                score.date = dateFormatter.string(from: Date())
+                for highScore in highScores{
+                    if highScore.rank >= newRank{
+                        let score1 = NormalScore()
+                        score1.rank = highScore.rank + 1
+                        score1.time = highScore.time
+                        score1.date = highScore.date
+                        try! db.write(){
+                            db.delete(highScore)
+                            db.add(score1,update: true)
+                        }
+                    }
+                }
+                try! db.write(){
+                    db.add(score,update: true)
+                }
+                for s in highScores{
+                    if s.rank == 31{
+                        try! db.write(){
+                            db.delete(s)
+                        }
+                        break
+                    }
+                }
+            }
+        }else if difficulty == 2{
+            let highScores = db.objects(HardScore.self)
+            for highScore in highScores{
+                if highScore.time <= newTime{
+                    newRank += 1
+                    newFlag = true
+                }
+            }
+            if !newFlag{
+                var newRankFlag = 255
+                for highScore in highScores{
+                    if newTime < highScore.time && highScore.rank <= newRankFlag{
+                        newRank = highScore.rank
+                        newFlag = true
+                        newRankFlag = highScore.rank
+                    }
+                }
+            }
+            if highScores.count == 0{
+                newRank = 1
+                newFlag = true
+            }
+            if newFlag{
+                let score = HardScore()
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy/MM/dd/HH:mm:SS"
+                score.rank = newRank
+                score.time = newTime
+                score.date = dateFormatter.string(from: Date())
+                for highScore in highScores{
+                    if highScore.rank >= newRank{
+                        let score1 = HardScore()
+                        score1.rank = highScore.rank + 1
+                        score1.time = highScore.time
+                        score1.date = highScore.date
+                        try! db.write(){
+                            db.delete(highScore)
+                            db.add(score1,update: true)
+                        }
+                    }
+                }
+                try! db.write(){
+                    db.add(score,update: true)
+                }
+                for s in highScores{
+                    if s.rank == 31{
+                        try! db.write(){
+                            db.delete(s)
+                        }
+                        break
+                    }
+                }
+            }
+        }
+        if newRank == 1{
+            send()
+        }
+    }
+    func createNextCat(){
+        if nextView != nil{
+            nextView?.removeFromSuperview()
+        }
+        let frame1 = CGRect(x: sS.width - sS.width/2.6, y: 20+50*scale, width: sS.width/3, height: sS.width/5)
+        nextView = UIView(frame: frame1)
+        var nextColor = 0
+        for neko in cats{
+            if neko.label?.text == String(current){
+                nextColor = neko.color
+                break
+            }
+        }
+        let frame2 = CGRect(x: 0, y: 0, width: catSize/1.5, height: catSize/1.5)
+        nextImageView = UIImageView(frame: frame2)
+        let colorAndPose = "stand" + String(nextColor)
+        nextImageView!.image = UIImage(named: colorAndPose)
+        nextLabel = ExtendedLabel(frame: frame2)
+        nextLabel!.textColor = UIColor.darkGray
+        nextLabel!.font = UIFont(name: "Chalkduster", size: 24/1.5)
+        nextLabel!.outLineColor = UIColor.white
+        nextLabel!.outLineWidth = 3.0
+        nextLabel!.backgroundColor = UIColor.init(white: 1.0, alpha: 0.0)
+        nextLabel!.text = String(current)
+        nextLabel!.textAlignment = .center
+        nextView?.addSubview(nextImageView!)
+        nextView?.addSubview(nextLabel!)
+        view.addSubview(nextView!)
+    }
+    func changeNextCat(){
+        if difficulty == 0 && current != 11 || difficulty == 1 && current != 16 || difficulty == 2 && current != 26{
+            var nextColor = 0
+            for neko in cats{
+                if neko.label?.text == String(current){
+                    nextColor = neko.color
+                    break
+                }
+            }
+            let colorAndPose = "stand" + String(nextColor)
+            nextImageView?.image = UIImage(named: colorAndPose)
+            nextLabel?.text = String(current)
+        }
+    }
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if first{
             first = false
         }
-        let point = touches.first?.locationInView(scrollView)
-        match:for l in cats{
-            if l.label!.text == String(current) && !stopFlag && l.nekoAndNumber!.frame.minX+(catSize/10)*2.7 <= point?.x && l.nekoAndNumber!.frame.maxX-(catSize/10)*2.7 >= point?.x && l.nekoAndNumber!.frame.minY+(catSize/10)*2.7 <= point?.y && l.nekoAndNumber!.frame.maxY-(catSize/10)*2.7 >= point?.y{
+        let point = touches.first?.location(in: scrollView)
+        for l in cats{
+            let neko = CGRect(x: l.nekoAndNumber!.frame.minX+catSize/10*1, y: l.nekoAndNumber!.frame.minY+catSize/10*1, width: catSize-catSize/10*2, height: catSize-catSize/10*2)
+            if l.label!.text == String(current) && !stopFlag && neko.contains(point!){
                 current += 1
+                changeNextCat()
                 l.catchFlag = true
-                l.move = 5
-                l.progress = 0
-                l.patience = 0
-                let str = "cat" + String(arc4random()%4+1)
-                sePlayer = prepareSound(str, type: "mp3")
-                sePlayer?.play()
+                if config.value(forKey: "sound") as! Bool{
+                    let str = "cat" + String(arc4random()%4+1)
+                    sePlayer = prepareSound(str, type: "mp3")
+                    sePlayer?.play()
+                }
                 if l.label!.text == String(cats.count){
                     countTimerFlag = false
+                    clear()
                 }
-                break match
+                break
             }
         }
     }
-    override func touchesMoved(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        touchesBegan(touches, withEvent: event)
-    }
     func makeButtons(){
-        let frame = CGRectMake(sS.width/3*2+space, sS.height-sS.height/20+space-20, sS.width/3-space-space*2, sS.height/20-space*2)
-        let start = UIButton(frame: frame)
-        start.backgroundColor = UIColor.init(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
-        start.setTitle("START", forState: .Normal)
-        start.addTarget(self, action: #selector(GameViewController.start), forControlEvents: .TouchUpInside)
-        view.addSubview(start)
-        let frame2 = CGRectMake(sS.width/3*2+space, sS.height-sS.height/20*2+space-20, sS.width/3-space-space*2, sS.height/20-space*2)
-        let stop = UIButton(frame: frame2)
-        stop.backgroundColor = UIColor.init(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
-        stop.setTitle("STOP", forState: .Normal)
-        stop.addTarget(self, action: #selector(GameViewController.stop), forControlEvents: .TouchUpInside)
-        view.addSubview(stop)
-        let frame3 = CGRectMake(sS.width/3*2+space, sS.height-sS.height/20*3+space-20, sS.width/3-space-space*2, sS.height/20-space*2)
-        let resume = UIButton(frame: frame3)
-        resume.backgroundColor = UIColor.init(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
-        resume.setTitle("RESUME", forState: .Normal)
-        resume.addTarget(self, action: #selector(GameViewController.resume), forControlEvents: .TouchUpInside)
-        view.addSubview(resume)
-        let frame4 = CGRectMake(sS.width/3*2+space, sS.height-sS.height/20*4+space-20, sS.width/3-space-space*2, sS.height/20-space*2)
+        let frame2 = CGRect(x: sS.width - sS.width/5, y: 20+50*scale, width: sS.width/6, height: sS.width/6)
+        stopButton = UIButton(frame: frame2)
+        stopButton!.setImage(images["stop"], for: UIControlState())
+        stopButton!.setTitle("STOP", for: UIControlState())
+        stopButton!.addTarget(self, action: #selector(GameViewController.stop), for: .touchUpInside)
+        view.addSubview(stopButton!)
+        let frame4 = CGRect(x: sS.width/3, y: catSize/3+50*scale, width: sS.width/3-space-space*2, height: sS.height/20-space*2)
         time = UILabel(frame: frame4)
-        time?.font = UIFont.monospacedDigitSystemFontOfSize(time!.font.pointSize, weight: 0.1)
-        time?.textAlignment = .Center
-        time!.textColor = UIColor.init(red: 0.0, green: 0.5, blue: 1.0, alpha: 1.0)
+        time?.font = UIFont.monospacedDigitSystemFont(ofSize: time!.font.pointSize*scale, weight: 1)
+        time?.textAlignment = .center
+        time!.textColor = UIColor.darkGray
         time!.text = "0.000"
         view.addSubview(time!)
     }
-    func makeLabels(){
+    func toFront(){
+        scrollView.bringSubview(toFront: objects["cardBoardFront"]!)
+        view.bringSubview(toFront: stopButton!)
+    }
+    func addNekoAndLabels(){
+        cats.removeAll()
         for i in 0..<catNum{
             var frame:CGRect? = nil
             if difficulty == 0{
                 let xx = rightEdge! - catSize
-                let yy = sS.height - topEdge! - catSize
+                let yy = sS.height - topEdge! - CGFloat(catSize / 1.9)
                 var x = CGFloat(arc4random()%UInt32(xx))
                 var y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
+                frame = CGRect(x: x+20*scale, y: y+20*scale, width: catSize-40*scale, height: catSize-40*scale)
                 for j in cats{
-                    while x > j.nekoAndNumber!.frame.minX-catSize*0.5 && x < j.nekoAndNumber!.frame.maxX+catSize*0.5 && y > j.nekoAndNumber!.frame.minY-catSize*0.5 && y < j.nekoAndNumber!.frame.maxY+catSize*0.5{
+                    while j.nekoAndNumber!.frame.intersects(frame!){
                         x = CGFloat(arc4random()%UInt32(xx))
                         y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
+                        frame = CGRect(x: x+20*scale, y: y+20*scale, width: catSize-40*scale, height: catSize-40*scale)
                     }
                 }
-                frame = CGRectMake(x,y,catSize, catSize)
+                frame = CGRect(x: x,y: y,width: catSize, height: catSize)
             }else if difficulty == 1{
-                let xx = rightEdge! - catSize
-                let yy = sS.height - topEdge! - catSize
-                let x = CGFloat(arc4random()%UInt32(xx))
-                let y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
-                frame = CGRectMake(x,y,catSize, catSize)
+                if i == 0{
+                    frame = CGRect(x: sS.width/10*8.6,y: sS.height/10*2.8 ,width: catSize, height: catSize)
+                }else if i == 1{
+                    frame = CGRect(x: sS.width+sS.width/10*7.5,y: sS.height/10*2.8 ,width: catSize, height: catSize)
+                }else if i == 2{
+                    frame = CGRect(x: objects["cardBoard"]!.frame.minX,y: objects["cardBoard"]!.frame.minY-22,width: catSize, height: catSize)
+                }else{
+                    while true{
+                        let xx = rightEdge! - catSize
+                        let yy = sS.height - topEdge! - CGFloat(catSize / 1.9)
+                        let x = CGFloat(arc4random()%UInt32(xx))
+                        let y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
+                        frame = CGRect(x: x,y: y,width: catSize, height: catSize)
+                        if !(objects["cardBoard"]!.frame.intersects(frame!)){
+                            break
+                        }
+                    }
+                }
             }else if difficulty == 2{
                 if i == 0{
-                    frame = CGRectMake(sS.width*2+sS.width/18*7,sS.height/10*4 ,catSize, catSize)
+                    frame = CGRect(x: sS.width*2+sS.width/18*7,y: sS.height/10*4 ,width: catSize, height: catSize)
                 }else if i == 1{
-                    frame = CGRectMake(sS.width*2+sS.width/18*4,sS.height/10*5.3 ,catSize, catSize)
+                    frame = CGRect(x: sS.width*2+sS.width/18*4,y: sS.height/10*5.3 ,width: catSize, height: catSize)
                 }else if i == 2{
-                    frame = CGRectMake(sS.width*2+sS.width/18*7.5,sS.height/10*6.5 ,catSize, catSize)
+                    frame = CGRect(x: sS.width*2+sS.width/18*7.5,y: sS.height/10*6.5 ,width: catSize, height: catSize)
                 }else if i == 3{
-                    frame = CGRectMake(sS.width/2,sS.height/10*2 ,catSize, catSize)
+                    frame = CGRect(x: sS.width/15,y: sS.height/10*3.3 ,width: catSize, height: catSize)
                 }else if i == 4{
-                    frame = CGRectMake(sS.width/2,sS.height/10*4 ,catSize, catSize)
+                    frame = CGRect(x: sS.width/3.5,y: sS.height/10*4.5 ,width: catSize, height: catSize)
                 }else if i == 5{
-                    frame = CGRectMake(sS.width/2,sS.height/10*0.2 ,catSize, catSize)
+                    frame = CGRect(x: sS.width/5,y: sS.height/10*0.01 ,width: catSize, height: catSize)
                 }else if i == 6{
-                    frame = CGRectMake(sS.width + sS.width/10*6.7,sS.height/10*7 ,catSize, catSize)
+                    frame = CGRect(x: sS.width + sS.width/10*6.7,y: sS.height/10*7 ,width: catSize, height: catSize)
                 }else if i == 7{
-                    frame = CGRectMake(sS.width/10*8.6,sS.height/10*2.8 ,catSize, catSize)
+                    frame = CGRect(x: sS.width/10*8.6,y: sS.height/10*2.8 ,width: catSize, height: catSize)
                 }else if i == 8{
-                    frame = CGRectMake(sS.width+sS.width/10*8.5,sS.height/10*2.8 ,catSize, catSize)
+                    frame = CGRect(x: sS.width+sS.width/10*7.5,y: sS.height/10*2.8 ,width: catSize, height: catSize)
                 }else if i == 9{
-                    frame = CGRectMake(sS.width,sS.height/10*3.5 ,catSize, catSize)
+                    frame = CGRect(x: sS.width,y: sS.height/10*3.5 ,width: catSize, height: catSize)
                 }else if i == 10{
-                    frame = CGRectMake(sS.width+sS.width/10*3,sS.height/10*3.6 ,catSize, catSize)
+                    frame = CGRect(x: sS.width+sS.width/10*3,y: sS.height/10*3.6 ,width: catSize, height: catSize)
                 }else if i == 11{
-                    frame = CGRectMake(sS.width+sS.width/10*2,sS.height/10*4.5 ,catSize, catSize)
+                    frame = CGRect(x: sS.width+sS.width/10*2,y: sS.height/10*4.5 ,width: catSize, height: catSize)
                 }else if i == 12{
-                    frame = CGRectMake(sS.width/10*8,sS.height/10*6.5 ,catSize, catSize)
+                    frame = CGRect(x: objects["cardBoard"]!.frame.minX,y: objects["cardBoard"]!.frame.minY-22,width: catSize, height: catSize)
                 }else if i == 13{
-                    frame = CGRectMake(sS.width/2,sS.height/10*5.3 ,catSize, catSize)
+                    frame = CGRect(x: sS.width/2,y: sS.height/10*5.3 ,width: catSize, height: catSize)
                 }else if i >= 14{
-                    let xx = rightEdge! - catSize
-                    let yy = sS.height - topEdge! - catSize
-                    let x = CGFloat(arc4random()%UInt32(xx))
-                    let y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
-                    frame = CGRectMake(x,y,catSize, catSize)
+                    while true{
+                        let xx = rightEdge! - catSize
+                        let yy = sS.height - topEdge! - CGFloat(catSize / 1.9)
+                        let x = CGFloat(arc4random()%UInt32(xx))
+                        let y = sS.height/10*3.6 + CGFloat(arc4random()%UInt32(yy))
+                        frame = CGRect(x: x,y: y,width: catSize, height: catSize)
+                        if !(objects["cardBoard"]!.frame.intersects(frame!)){
+                            break
+                        }
+                    }
                 }
             }
             let label:ExtendedLabel = ExtendedLabel(frame: frame!)
-            label.textColor = UIColor.darkGrayColor()
-            label.font = UIFont(name: "Helvetica", size: 24)
-            label.outLineColor = UIColor.whiteColor()
-            label.outLineWidth = 1.0
+            label.textColor = UIColor.darkGray
+            label.font = UIFont(name: "Chalkduster", size: 24)
+            label.outLineColor = UIColor.white
+            label.outLineWidth = 3.0
             label.backgroundColor = UIColor.init(white: 1.0, alpha: 0.0)
             label.text = String(randNumbers![i])
-            label.textAlignment = .Center
+            label.textAlignment = .center
             var color: Int = 0
             if randNumbers![i]%5 == 1{
                 color = 0
@@ -225,12 +569,25 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
                     neko = Neko(move: 5,label: label,color: color)
                 }
             }else if difficulty == 1{
-                neko = Neko(move: Int(arc4random()%7),label: label,color: color)
+                if i <= 1{
+                    neko = Neko(move: 3,label: label,color: color)
+                }else if i == 2{
+                    neko = Neko(move: 100,label: label,color: color)
+                }else{
+                    var move = 1
+                    while true{
+                        move = Int(arc4random()%7)
+                        if move != 3 && move != 4{
+                            break
+                        }
+                    }
+                    neko = Neko(move: move,label: label,color: color)
+                }
             }else if difficulty == 2{
                 if i == 1{
                     neko = Neko(move: 1,label: label,color: color)
                 }else if i == 2{
-                    neko = Neko(move: 100,label: label,color: color)
+                    neko = Neko(move: 5,label: label,color: color)
                 }else if i < 7{
                     neko = Neko(move: 5,label: label,color: color)
                 }else if i == 7 || i == 8{
@@ -240,7 +597,7 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
                 }else if i == 11{
                     neko = Neko(move: 1,label: label,color: color)
                 }else if i == 12{
-                    neko = Neko(move: 5,label: label,color: color)
+                    neko = Neko(move: 100,label: label,color: color)
                 }else if i == 13{
                     neko = Neko(move: 2,label: label,color: color)
                 }else if i >= 14{
@@ -248,14 +605,68 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
                 }
             }
             cats.append(neko!)
-            if neko?.itemAndNeko != nil{
-                scrollView.addSubview(neko!.itemAndNeko!)
-            }else{
-                scrollView.addSubview(neko!.nekoAndNumber!)
-            }
-        }
+            neko!.addObjectFrames("cardBoard", frame: objects["cardBoard"]!.frame)
+            neko!.addObjectFrames("cardBoardFront", frame: objects["cardBoardFront"]!.frame)
+            neko!.addObjectFrames("tennisBall", frame: objects["tennisBall"]!.frame)
+            neko!.addObjectFrames("baseball", frame: objects["baseball"]!.frame)
+            scrollView.addSubview(neko!.nekoAndNumber!)        }
     }
-    func getRandArray(num:Int)->[Int]{
+    func addObjects(){
+        let x = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width-cardBoardWidth)) + sS.width
+        let y = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*3.6)) + scrollView.frame.height/10*6.4
+        let cFrame = CGRect(x: x, y: y, width: cardBoardWidth, height: cardBoardHeight)
+        var tFrame:CGRect? = nil
+        var bFrame:CGRect? = nil
+        let cardBoard = UIImageView(frame: cFrame)
+        let cardBoardFront = UIImageView(frame: cFrame)
+        cardBoard.image = images["cardBoard"]
+        cardBoardFront.image = images["cardBoardFront"]
+        scrollView.addSubview(cardBoard)
+        scrollView.addSubview(cardBoardFront)
+        objects.removeAll()
+        objects["cardBoard"] = cardBoard
+        objects["cardBoardFront"] = cardBoardFront
+        repeat{
+            if difficulty == 0{
+                let x2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width-ballSize))
+                let y2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                tFrame = CGRect(x: x2, y: y2, width: ballSize, height: ballSize)
+            }else if difficulty == 1{
+                let x2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width/3*3.5-ballSize))+sS.width/3*1.5
+                let y2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                tFrame = CGRect(x: x2, y: y2, width: ballSize, height: ballSize)
+            }else if difficulty == 2{
+                let x2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width/3*6.5-ballSize))+sS.width/3*1.5
+                let y2 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                tFrame = CGRect(x: x2, y: y2, width: ballSize, height: ballSize)
+            }
+        }while tFrame!.intersects(cFrame)
+        repeat{
+            if difficulty == 0{
+                let x3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width-ballSize))
+                let y3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                bFrame = CGRect(x: x3, y: y3, width: ballSize, height: ballSize)
+            }else if difficulty == 1{
+                let x3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width/3*3.5-ballSize))+sS.width/3*1.5
+                let y3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                bFrame = CGRect(x: x3, y: y3, width: ballSize, height: ballSize)
+            }else if difficulty == 2{
+                let x3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (sS.width/3*6.5-ballSize))+sS.width/3*1.5
+                let y3 = CGFloat(arc4random()).truncatingRemainder(dividingBy: (scrollView.frame.height/10*4-ballSize)) + scrollView.frame.height/10*6
+                bFrame = CGRect(x: x3, y: y3, width: ballSize, height: ballSize)
+            }
+        }while bFrame!.intersects(cFrame) && bFrame!.intersects(tFrame!)
+        let tennisBall = UIImageView(frame: tFrame!)
+        let baseball = UIImageView(frame: bFrame!)
+        tennisBall.image = images["tennisBall"]
+        baseball.image = images["baseball"]
+        scrollView.addSubview(tennisBall)
+        scrollView.addSubview(baseball)
+        objects["tennisBall"] = tennisBall
+        objects["baseball"] = baseball
+    }
+    func getRandArray(_ num:Int)->[Int]{
+        randNumbers?.removeAll()
         var numbers:[Int] = []
         numbers.append(Int(arc4random()%UInt32(num))+1)
         for _ in 0..<num-1{
@@ -284,381 +695,21 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
         for i in cats{
             if i.patience == 0{
                 if i.move == 0{
-                    if i.progress <= 500{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.nekoAndNumber!.frame.minX + 1 < scrollView.contentSize.width{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX+1, i.nekoAndNumber!.frame.minY,
-                                                                    i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                            }
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "shitDown" + String(i.color)
-                        i.imageView?.image = images[colorAndPose]
-                        i.move = 1
-                        i.progress = 0
-                        i.patience = Int(arc4random()%500)
-                    }
-                    i.progress += 1
+                    i.walkRight(images)
                 }else if i.move == 1{
-                    if i.progress <= 500{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.nekoAndNumber!.frame.minX >= 0{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX-1, i.nekoAndNumber!.frame.minY,
-                                                                    i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                            }
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "shitDown" + String(i.color)
-                        i.imageView?.image = images[colorAndPose]
-                        i.move = 0
-                        i.progress = 0
-                        i.patience = Int(arc4random()%500)
-                    }
-                    i.progress += 1
+                    i.walkLeft(images)
                 }else if i.move == 2{
-                    if i.progress < 200{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.progress <= 20{
-                                let colorAndPose = "run0" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 40{
-                                let colorAndPose = "run1" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 60{
-                                let colorAndPose = "run2" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 80{
-                                let colorAndPose = "run1" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 100{
-                                let colorAndPose = "run0" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 120{
-                                let colorAndPose = "run0r" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 140{
-                                let colorAndPose = "run1r" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 160{
-                                let colorAndPose = "run2r" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else if i.progress <= 180{
-                                let colorAndPose = "run1r" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }else{
-                                let colorAndPose = "run0r" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                            }
-                            let rad = (Double(i.progress) + 0.01) * (360.0 / Double(200))
-                            let labelX = CGFloat(12 * cos(M_PI / 180 * rad))
-                            let labelY = CGFloat(12 * sin(M_PI / 180 * rad))
-                            i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX + labelX, i.nekoAndNumber!.frame.minY+labelY,
-                                                                i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                            
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "shitDown" + String(i.color)
-                        i.imageView?.image = images[colorAndPose]
-                        i.progress = 0
-                        i.patience = Int(arc4random()%500)
-                    }
-                    i.progress += 1
+                    i.circleRun(images)
                 }else if i.move == 3{
-                    if i.progress < 500{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.nekoAndNumber!.frame.minY - 1 > 0{
-                                if i.progress < 125{
-                                    let colorAndPose = "climb0" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress < 250{
-                                    let colorAndPose = "climb1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress < 375{
-                                    let colorAndPose = "climb0" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "climb2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX, i.nekoAndNumber!.frame.minY-1,
-                                                                    i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                            }
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "climb0" + String(i.color)
-                        i.imageView?.image = images[colorAndPose]
-                        i.move = 4
-                        i.progress = 0
-                        i.patience = Int(arc4random()%1000)
-                    }
-                    i.progress += 1
+                    i.climbUp(images)
                 }else if i.move == 4{
-                    if i.progress < 100{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.nekoAndNumber!.frame.minY + 5 < scrollView.contentSize.height{
-                                let colorAndPose = "climb0" + String(i.color)
-                                i.imageView?.image = images[colorAndPose]
-                                i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX, i.nekoAndNumber!.frame.minY + 5,
-                                                                    i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                            }
-                            i.currentProgress = current
-                        }
-                    }else{
-                        i.move = 3
-                        i.progress = 0
-                        i.patience = Int(arc4random()%1000)
-                    }
-                    i.progress += 1
+                    i.climbDown(images, bottomEdge: bottomEdge!)
                 }else if i.move == 5{
-                    if i.progress < 100{
-                        let current = i.progress / 16
-                        if current != i.currentProgress{
-                            if i.progress <= 16{
-                                let colorAndPose = "tail2" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }else if i.progress <= 32{
-                                let colorAndPose = "tail3" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }else if i.progress <= 48{
-                                let colorAndPose = "tail4" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }else if i.progress <= 64{
-                                let colorAndPose = "tail3" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }else if i.progress <= 80{
-                                let colorAndPose = "tail2" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }else if i.progress <= 100{
-                                let colorAndPose = "tail1" + String(i.color)
-                                i.subImageView?.image = images[colorAndPose]
-                            }
-                            
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "tail1" + String(i.color)
-                        i.subImageView?.image = images[colorAndPose]
-                        i.progress = 0
-                        i.patience = Int(arc4random()%2000)
-                    }
-                    i.progress += 1
+                    i.lie(images)
                 }else if i.move == 6{
-                    if i.progress < 2000{
-                        let current = i.progress / 10
-                        if current != i.currentProgress{
-                            if i.currentProgress%10 == 1{
-                                i.direction = Int(arc4random()%8)
-                            }
-                            if i.direction == 0{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minX - 5 > leftEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX-5, i.nekoAndNumber!.frame.minY,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 1{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minY - 5 > topEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX, i.nekoAndNumber!.frame.minY-5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 2{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minX + catSize + 5 < rightEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX+5, i.nekoAndNumber!.frame.minY,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 3{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minY + catSize + 5 < bottomEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX, i.nekoAndNumber!.frame.minY+5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 4{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minX - 5 > leftEdge && i.nekoAndNumber!.frame.minY - 5 > topEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX-5, i.nekoAndNumber!.frame.minY-5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 5{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                let x = i.nekoAndNumber!.frame.minX + catSize + 5
-                                let y = i.nekoAndNumber!.frame.minY + catSize - 5
-                                if y > topEdge && x < rightEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX+5, i.nekoAndNumber!.frame.minY-5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 6{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "standr" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2r" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                let x = i.nekoAndNumber!.frame.minX + catSize + 5
-                                let y = i.nekoAndNumber!.frame.minY + catSize + 5
-                                if x < rightEdge &&
-                                    y < bottomEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX+5, i.nekoAndNumber!.frame.minY+5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }else if i.direction == 7{
-                                if i.progress%100 <= 25{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 50{
-                                    let colorAndPose = "walk1" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else if i.progress%100 <= 75{
-                                    let colorAndPose = "stand" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }else{
-                                    let colorAndPose = "walk2" + String(i.color)
-                                    i.imageView?.image = images[colorAndPose]
-                                }
-                                if i.nekoAndNumber!.frame.minX - 5 > leftEdge && i.nekoAndNumber!.frame.minY + catSize + 5 < bottomEdge{
-                                    i.nekoAndNumber!.frame = CGRectMake(i.nekoAndNumber!.frame.minX-5, i.nekoAndNumber!.frame.minY+5,
-                                                                        i.nekoAndNumber!.frame.width, i.nekoAndNumber!.frame.height)
-                                }else{
-                                    i.direction = Int(arc4random()%8)
-                                }
-                            }
-                            i.currentProgress = current
-                        }
-                    }else{
-                        let colorAndPose = "shitDown" + String(i.color)
-                        i.imageView?.image = images[colorAndPose]
-                        i.progress = 0
-                        i.patience = Int(arc4random()%500)
-                    }
-                    i.progress += 1
+                    i.walkAround(catSize, images: images, leftEdge: leftEdge!, topEdge: topEdge!, rightEdge: rightEdge!, bottomEdge: bottomEdge!,currentNum: current)
+                }else if i.move == 7{
+                    i.ball(images)
                 }
             }
             if i.patience != 0{
@@ -673,7 +724,7 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
                     i.first = false
                     i.nekoAndNumber?.removeFromSuperview()
                     view.addSubview(i.nekoAndNumber!)
-                    i.nekoAndNumber?.frame = CGRectMake(i.nekoAndNumber!.frame.minX - scrollView.contentOffset.x, i.nekoAndNumber!.frame.minY, catSize, catSize)
+                    i.nekoAndNumber?.frame = CGRect(x: i.nekoAndNumber!.frame.minX - scrollView.contentOffset.x, y: i.nekoAndNumber!.frame.minY+50*scale, width: catSize, height: catSize)
                     i.px1 = i.nekoAndNumber!.frame.minX
                     i.py1 = i.nekoAndNumber!.frame.minY + 20
                     if i.nekoAndNumber!.frame.minX+50 > sS.width/2{
@@ -691,56 +742,91 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
                 let p_y2 = CGFloat(2*(1-i.catchProgress)*i.catchProgress)*i.py2
                 let p_y3 = CGFloat(i.catchProgress*i.catchProgress)*(sS.height-50)
                 let p_y = p_y1 + p_y2 + p_y3
-                let frame = CGRectMake(p_x, p_y, catSize, catSize)
+                let frame = CGRect(x: p_x, y: p_y, width: catSize, height: catSize)
                 i.nekoAndNumber?.frame = frame
                 i.catchProgress += 0.005 + i.catchProgress*0.009
             }
             if i.catchProgress >= 1{
                 i.catchFlag = false
-                i.nekoAndNumber?.hidden = true
+                i.nekoAndNumber?.isHidden = true
             }
         }
     }
     
+    func countDown(){
+        if progress == 0{
+            if config.value(forKey: "sound") as! Bool{
+                let str = "cat2"
+                sePlayer2 = prepareSound(str, type: "mp3")
+                sePlayer2?.play()
+            }
+            let anime = CABasicAnimation(keyPath: "strokeEnd")
+            anime.duration = 1.0
+            anime.fromValue = 0.0
+            anime.toValue = 1.0
+            sharpLayer.add(anime, forKey: "countCircle")
+        }
+        progress += 1
+        if progress == 51{
+            progress = 0
+        }
+        if progress == 50{
+            countNumber.text = String(Int(countNumber.text!)! - 1)
+            sharpLayer.removeAllAnimations()
+            if countNumber.text == "0"{
+                countNumber.removeFromSuperview()
+                countNumber = nil
+                countDownFlag = false
+                sharpLayer.removeFromSuperlayer()
+                start()
+            }
+        }
+    }
     func timerUpdate(){
         if countTimerFlag{
-            let current = NSDate().timeIntervalSince1970
+            let current = Date().timeIntervalSince1970
             time?.text = String(format: "%.03f", current - startTime!)
         }
-        moveCats()
-        catchCat()
+        if countDownFlag{
+            countDown()
+        }else{
+            moveCats()
+            catchCat()
+        }
     }
-    override func viewWillDisappear(animated: Bool) {
+    override func viewWillDisappear(_ animated: Bool) {
         if timer != nil{
             timer?.invalidate()
         }
     }
     
     func loadWallImage(){
-        var wallPaper = UIImage(named: "room1.png")
-        let resizedSize = CGSize(width: sS.width*3, height: sS.height)
+        var wallPaper = UIImage(named: "room2.png")
+        let resizedSize = CGSize(width: sS.width*3, height: scrollView.frame.height)
         UIGraphicsBeginImageContext(resizedSize)
-        wallPaper!.drawInRect(CGRectMake(0, 0, resizedSize.width, resizedSize.height))
+        wallPaper!.draw(in: CGRect(x: 0, y: 0, width: resizedSize.width, height: resizedSize.height))
         let resizeImage = UIGraphicsGetImageFromCurrentImageContext()
         UIGraphicsEndImageContext()
-        wallPaper! = resizeImage
-        print(wallPaper!.size)
-        print(scrollView.contentSize)
+        wallPaper! = resizeImage!
         if difficulty == 0 {
-            let cropRect = CGRectMake(wallPaper!.size.width/3, 0, wallPaper!.size.width/3, wallPaper!.size.height)
-            let cropRef = CGImageCreateWithImageInRect(wallPaper!.CGImage, cropRect)
-            wallPaper = UIImage(CGImage: cropRef!)
+            let cropRect = CGRect(x: wallPaper!.size.width/3, y: 0, width: wallPaper!.size.width/3, height: wallPaper!.size.height)
+            let cropRef = wallPaper!.cgImage?.cropping(to: cropRect)
+            wallPaper = UIImage(cgImage: cropRef!)
         }else if difficulty == 1{
-            if difficulty == 0 {
-                let cropRect = CGRectMake(0, 0, wallPaper!.size.width/3*2, wallPaper!.size.height)
-                let cropRef = CGImageCreateWithImageInRect(wallPaper!.CGImage, cropRect)
-                wallPaper = UIImage(CGImage: cropRef!)
-            }
+            let cropRect = CGRect(x: 0, y: 0, width: wallPaper!.size.width/3*2, height: wallPaper!.size.height)
+            let cropRef = wallPaper!.cgImage?.cropping(to: cropRect)
+            wallPaper = UIImage(cgImage: cropRef!)
         }
         let wpView = UIImageView(image: wallPaper)
-        wpView.frame = CGRectMake(0, 0, wallPaper!.size.width, wallPaper!.size.height)
+        if difficulty == 0{
+            wpView.frame = CGRect(x: 0, y: 0, width: sS.width, height: sS.height)
+        }else if difficulty == 1{
+            wpView.frame = CGRect(x: 0, y: 0, width: sS.width*2, height: sS.height)
+        }else{
+            wpView.frame = CGRect(x: 0, y: 0, width: sS.width*3, height: sS.height)
+        }
         scrollView.addSubview(wpView)
-        scrollView.sendSubviewToBack(wpView)
+        scrollView.sendSubview(toBack: wpView)
         images["shitDown0"] = UIImage(named: "shitDown0.png")!
         images["shitDown1"] = UIImage(named: "shitDown1.png")!
         images["shitDown2"] = UIImage(named: "shitDown2.png")!
@@ -847,20 +933,49 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
         images["tail24"] = UIImage(named: "tail24.png")!
         images["tail34"] = UIImage(named: "tail34.png")!
         images["tail44"] = UIImage(named: "tail44.png")!
-        
+        images["cardBoard"] = UIImage(named: "cardBoard.png")!
+        images["cardBoardFront"] = UIImage(named: "cardBoardFront.png")!
+        images["stop"] = UIImage(named: "stop.png")
+        images["ball0"] = UIImage(named: "ball0.png")!
+        images["hand00"] = UIImage(named: "hand00.png")!
+        images["hand10"] = UIImage(named: "hand10.png")!
+        images["hand20"] = UIImage(named: "hand20.png")!
+        images["hand30"] = UIImage(named: "hand30.png")!
+        images["ball1"] = UIImage(named: "ball1.png")!
+        images["hand01"] = UIImage(named: "hand01.png")!
+        images["hand11"] = UIImage(named: "hand11.png")!
+        images["hand21"] = UIImage(named: "hand21.png")!
+        images["hand31"] = UIImage(named: "hand31.png")!
+        images["ball2"] = UIImage(named: "ball2.png")!
+        images["hand02"] = UIImage(named: "hand02.png")!
+        images["hand12"] = UIImage(named: "hand12.png")!
+        images["hand22"] = UIImage(named: "hand22.png")!
+        images["hand32"] = UIImage(named: "hand32.png")!
+        images["ball3"] = UIImage(named: "ball3.png")!
+        images["hand03"] = UIImage(named: "hand03.png")!
+        images["hand13"] = UIImage(named: "hand13.png")!
+        images["hand23"] = UIImage(named: "hand23.png")!
+        images["hand33"] = UIImage(named: "hand33.png")!
+        images["ball4"] = UIImage(named: "ball4.png")!
+        images["hand04"] = UIImage(named: "hand04.png")!
+        images["hand14"] = UIImage(named: "hand14.png")!
+        images["hand24"] = UIImage(named: "hand24.png")!
+        images["hand34"] = UIImage(named: "hand34.png")!
+        images["tennisBall"] = UIImage(named: "tennisBall.png")!
+        images["baseball"] = UIImage(named: "baseball.png")!
     }
     func rightTopInfomation(){
-        let numberLast = UIView(frame: CGRectMake(sS.width/4*3,0,sS.width/4,sS.height/3))
-        let white = UIImageView(frame: CGRectMake(0,40,catSize/3,catSize/3))
-        let black = UIImageView(frame: CGRectMake(0,80,catSize/3,catSize/3))
-        let brown = UIImageView(frame: CGRectMake(0,120,catSize/3,catSize/3))
-        let silver = UIImageView(frame: CGRectMake(0,160,catSize/3,catSize/3))
-        let three = UIImageView(frame: CGRectMake(0,200,catSize/3,catSize/3))
-        let whiteLabel = UILabel(frame: CGRectMake(40,40,catSize/3,catSize/3))
-        let blackLabel = UILabel(frame: CGRectMake(40,80,catSize/3,catSize/3))
-        let brownLabel = UILabel(frame: CGRectMake(40,120,catSize/3,catSize/3))
-        let silverLabel = UILabel(frame: CGRectMake(40,160,catSize/3,catSize/3))
-        let threeLabel = UILabel(frame: CGRectMake(40,200,catSize/3,catSize/3))
+        let numberLast = UIView(frame: CGRect(x: sS.width/4*2.6,y: 0,width: sS.width/4*1.2,height: sS.height/3))
+        let white = UIImageView(frame: CGRect(x: 0,y: 40,width: catSize/3,height: catSize/3))
+        let black = UIImageView(frame: CGRect(x: 0,y: 80,width: catSize/3,height: catSize/3))
+        let brown = UIImageView(frame: CGRect(x: 0,y: 120,width: catSize/3,height: catSize/3))
+        let silver = UIImageView(frame: CGRect(x: 0,y: 160,width: catSize/3,height: catSize/3))
+        let three = UIImageView(frame: CGRect(x: 0,y: 200,width: catSize/3,height: catSize/3))
+        let whiteLabel = UILabel(frame: CGRect(x: 40,y: 40,width: catSize/3*1.2,height: catSize/3))
+        let blackLabel = UILabel(frame: CGRect(x: 40,y: 80,width: catSize/3*1.2,height: catSize/3))
+        let brownLabel = UILabel(frame: CGRect(x: 40,y: 120,width: catSize/3*1.2,height: catSize/3))
+        let silverLabel = UILabel(frame: CGRect(x: 40,y: 160,width: catSize/3*1.2,height: catSize/3))
+        let threeLabel = UILabel(frame: CGRect(x: 40,y: 200,width: catSize/3*1.2,height: catSize/3))
         whiteLabel.text = "1,6..."
         blackLabel.text = "2,7..."
         brownLabel.text = "3,8..."
@@ -888,12 +1003,31 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
         numberLast.addSubview(threeLabel)
         view.addSubview(numberLast)
     }
-    func prepareSound(name:String,type:String)->AVAudioPlayer{
+    let sharpLayer: CAShapeLayer = {
+        let layer = CAShapeLayer()
+        layer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.size.width/2,height: UIScreen.main.bounds.size.height)
+        layer.fillColor = UIColor.clear.cgColor
+        layer.strokeColor = UIColor.darkGray.cgColor
+        layer.lineWidth = 50.0
+        return layer
+    }()
+    func prepareCount(){
+        let center = CGPoint(x: sS.width/2,y: sS.height/2)
+        let radius = 100*scale
+        let startAngle = CGFloat(-M_PI_2)
+        let endAngle = startAngle + 2.0 * CGFloat(M_PI)
+        let path = UIBezierPath(arcCenter: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: true)
+        sharpLayer.path = path.cgPath
+        countNumber.font = UIFont(name: "ChalkDuster", size: 100*scale)
+        countNumber.textColor = UIColor.darkGray
+        view.bringSubview(toFront: countNumber)
+    }
+    func prepareSound(_ name:String,type:String)->AVAudioPlayer{
         var audioPlayer:AVAudioPlayer? = nil
         do{
-            let filePath = NSBundle.mainBundle().pathForResource(name,ofType: type)
-            let audioPath = NSURL(fileURLWithPath: filePath!)
-            audioPlayer = try AVAudioPlayer(contentsOfURL: audioPath)
+            let filePath = Bundle.main.path(forResource: name,ofType: type)
+            let audioPath = URL(fileURLWithPath: filePath!)
+            audioPlayer = try AVAudioPlayer(contentsOf: audioPath)
             audioPlayer!.prepareToPlay()
         }catch{
             print("error")
@@ -915,47 +1049,59 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
     override func viewDidLoad() {
         super.viewDidLoad()
         scale = loadScale()
-        catSize = 100 * scale
-        rightTopInfomation()
+        catSize = catSize * scale
+        cardBoardWidth = cardBoardWidth * scale
+        cardBoardHeight = cardBoardHeight * scale
+
         automaticallyAdjustsScrollViewInsets = false
-        scrollView.frame = CGRectMake(0, 0, sS.width, sS.height-20)
-        scrollView.bounces = false
         if difficulty == 0{
-            scrollView.contentSize = CGSizeMake(sS.width, sS.height-20)
+            scrollView.contentSize = CGSize(width: sS.width, height: sS.height-50*scale-20)
             leftEdge = 0
-            topEdge = sS.height/10*3.6
+            topEdge = scrollView.frame.height/10*6.4
             rightEdge = sS.width
-            bottomEdge = sS.height - catSize
+            bottomEdge = scrollView.contentSize.height
             catNum = 10
         }else if difficulty == 1{
-            scrollView.contentSize = CGSizeMake(sS.width * 2, sS.height-20)
+            scrollView.contentSize = CGSize(width: sS.width * 2, height: sS.height-50*scale-20)
             leftEdge = sS.width / 10*3
-            topEdge = sS.height/10*3.6
+            topEdge = scrollView.frame.height/10*6.4
             rightEdge = sS.width*2
-            bottomEdge = sS.height - catSize
+            bottomEdge = scrollView.contentSize.height
             catNum = 15
         }else if difficulty == 2{
-            scrollView.contentSize = CGSizeMake(sS.width * 3, sS.height-20)
+            scrollView.contentSize = CGSize(width: sS.width * 3, height: sS.height-50*scale-20)
             leftEdge = sS.width / 10*3
-            topEdge = sS.height/10*3.6
-            rightEdge = sS.width*2+sS.width/18*4
-            bottomEdge = sS.height - catSize
+            topEdge = scrollView.frame.height/10*6.4
+            rightEdge = sS.width*3
+            bottomEdge = scrollView.contentSize.height
             catNum = 25
         }
-        scrollView.contentOffset = CGPointMake(sS.width, 0)
+        if difficulty != 0{
+            scrollView.contentOffset = CGPoint(x: sS.width, y: 0)
+        }
         scrollView.delegate = self
         loadWallImage()
         makeButtons()
+        prepareCount()
+        showBanner()
+        view.layer.addSublayer(sharpLayer)
+        timer = Timer.scheduledTimer(timeInterval: 0.02, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
         // Do any additional setup after loading the view, typically from a nib.
     }
-    override func viewWillAppear(animated: Bool) {
+    func showBanner(){
+        banner.adUnitID = "ca-app-pub-4139998452148591/4941710868"
+        banner.rootViewController = self
+        let request:GADRequest = GADRequest()
+        banner.load(request)
+    }
+    override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if timer == nil && cats.count != 0{
-            timer = NSTimer.scheduledTimerWithTimeInterval(0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
-            NSRunLoop.mainRunLoop().addTimer(timer!, forMode: NSRunLoopCommonModes)
+            timer = Timer.scheduledTimer(timeInterval: 0.001, target: self, selector: #selector(GameViewController.timerUpdate), userInfo: nil, repeats: true)
+            RunLoop.main.add(timer!, forMode: RunLoopMode.commonModes)
         }
     }
-    override func viewDidDisappear(animated: Bool) {
+    override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if timer != nil{
             timer?.invalidate()
@@ -964,86 +1110,6 @@ class GameViewController: UIViewController ,UIScrollViewDelegate{
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
-    }
-    class Neko{
-        let sS = UIScreen.mainScreen().bounds.size
-        var move = 0
-        var progress = 0
-        var currentProgress = 0
-        var patience = Int(arc4random()%500)
-        var itemAndNeko: UIView?
-        var nekoAndNumber:UIView?
-        var imageView: UIImageView?
-        var subImageView: UIImageView?
-        var item1: UIImageView?
-        var item2: UIImageView?
-        var foot: UIImageView?
-        var label: ExtendedLabel?
-        var color = 0
-        var direction = 0
-        var catchFlag = false
-        var catchProgress = 0.0
-        var first = true
-        var px1:CGFloat = 0.0
-        var py1:CGFloat = 0.0
-        var px2:CGFloat = 0.0
-        var py2:CGFloat = 0.0
-        init(move: Int,label: ExtendedLabel,color:Int){
-            let frame = CGRectMake(0, 0, label.frame.width, label.frame.height)
-            let colorAndPose = "shitDown" + String(color) + ".png"
-            self.move = move
-            self.label = label
-            self.color = color
-            self.nekoAndNumber = UIView(frame: label.frame)
-            self.imageView = UIImageView(frame: frame)
-            self.imageView!.image = UIImage(named: colorAndPose)
-            self.label!.frame = frame
-            if move == 3{
-                let colorAndPose = "climb0" + String(color) + ".png"
-                self.imageView!.image = UIImage(named: colorAndPose)
-            }
-            if move == 5 || move == 100{
-                var colorAndPose = "lie0" + String(color) + ".png"
-                self.imageView!.image = UIImage(named: colorAndPose)
-                self.subImageView = UIImageView(frame: frame)
-                colorAndPose = "tail1" + String(color) + ".png"
-                self.subImageView!.image = UIImage(named: colorAndPose)
-            }
-            if move == 100{
-                self.move = 5
-            }
-            
-            nekoAndNumber!.addSubview(imageView!)
-            nekoAndNumber!.addSubview(label)
-            if move == 100{
-                itemAndNeko = UIView(frame: CGRectMake(0,0,sS.width*3,sS.height))
-                item1 = UIImageView(frame: CGRectMake(0,0,sS.width*3,sS.height))
-                item2 = UIImageView(frame: CGRectMake(0,0,sS.width*3,sS.height))
-                item1?.image = UIImage(named: "roomTV.png")
-                item2?.image = UIImage(named: "roomTVTop.png")
-                itemAndNeko!.addSubview(item1!)
-                itemAndNeko!.addSubview(nekoAndNumber!)
-                itemAndNeko!.addSubview(item2!)
-            }
-            if subImageView != nil{
-                nekoAndNumber?.addSubview(subImageView!)
-            }
-        }
-        func walk(cat:Neko){
-            
-        }
-        func circleRun(cat:Neko){
-            
-        }
-        func climb(cat:Neko){
-            
-        }
-        func lie(cat:Neko){
-            
-        }
-        func walkAround(cat:Neko){
-            
-        }
     }
 }
 

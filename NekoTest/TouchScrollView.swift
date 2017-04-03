@@ -10,13 +10,13 @@ import Foundation
 import UIKit
 
 class touchScrollView:UIScrollView{
-    override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        superview?.touchesBegan(touches, withEvent: event)
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        superview?.touchesBegan(touches, with: event)
     }
-    override func touchesMoved(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        superview?.touchesMoved(touches, withEvent: event)
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        superview?.touchesMoved(touches, with: event)
     }
-    override func touchesEnded(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        superview?.touchesEnded(touches, withEvent: event)
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        superview?.touchesEnded(touches, with: event)
     }
 }

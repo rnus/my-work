@@ -14,22 +14,22 @@ class ExtendedLabel:UILabel{
     var outLineWidth: CGFloat?
     override init(frame: CGRect) {
         super.init(frame: frame)
-        outLineColor = UIColor.blackColor()
+        outLineColor = UIColor.black
         outLineWidth = 0.64
     }
     
-    override func drawTextInRect(rect: CGRect) {
+    override func drawText(in rect: CGRect) {
         let cr = UIGraphicsGetCurrentContext()!
         let textColor = self.textColor
-        CGContextSetLineWidth(cr, outLineWidth!)
-        CGContextSetLineJoin(cr, CGLineJoin.Round)
-        CGContextSetTextDrawingMode(cr, CGTextDrawingMode.Stroke)
+        cr.setLineWidth(outLineWidth!)
+        cr.setLineJoin(CGLineJoin.round)
+        cr.setTextDrawingMode(CGTextDrawingMode.stroke)
         self.textColor = outLineColor
-        super.drawTextInRect(rect)
+        super.drawText(in: rect)
         
-        CGContextSetTextDrawingMode(cr, CGTextDrawingMode.Fill)
+        cr.setTextDrawingMode(CGTextDrawingMode.fill)
         self.textColor = textColor
-        super.drawTextInRect(rect)
+        super.drawText(in: rect)
     }
     
     required init?(coder aDecoder: NSCoder) {
